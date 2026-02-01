@@ -67,7 +67,7 @@ export const AutoUpdatePermissionPlugin: Plugin = async ({ project, client, $, d
         if (!foundPermissionAskedEvent) return;
 
         const openCodeJsonPath = directory + "/opencode.json";
-        const openCodeJson = await readFile(openCodeJsonPath, "utf-8");
+        const openCodeJson = await readFile(openCodeJsonPath, "utf-8").catch(() => "{}");
         const openCodeConfig = JSON.parse(openCodeJson);
         const configWithPermission = getConfigWithPermission(openCodeConfig);
         
