@@ -32,10 +32,23 @@ type PermissionRepliedEvent = z.infer<typeof zPermissionRepliedEvent>;
 const isPermissionRepliedEvent = (event: unknown): event is PermissionRepliedEvent => zPermissionRepliedEvent.safeParse(event).success;
 
 const zOpenCodeConfig = z.object({
-  permission: z.record(z.string(), z.string().or(z.record(z.string(), z.string()))),
+  "$schema": z.literal("https://opencode.ai/config.json"),
+  permission: z.record(z.string(), z.string().or(z.record(z.string(), z.string()))).optional(),
 });
 type OpenCodeConfig = z.infer<typeof zOpenCodeConfig>;
 const isOpenCodeConfig = (config: unknown): config is OpenCodeConfig => zOpenCodeConfig.safeParse(config).success;
+
+const zOpenCodeConfigWithPermission = zOpenCodeConfig.extend({
+  permission: z.record(z.string(), z.string().or(z.record(z.string(), z.string()))),
+});
+type OpenCodeConfigWithPermission = z.infer<typeof zOpenCodeConfigWithPermission>;
+const isOpenCodeConfigWithPermission = (config: unknown): config is OpenCodeConfigWithPermission => zOpenCodeConfigWithPermission.safeParse(config).success;
+
+const getConfigWithPermission = (config: unknown): OpenCodeConfigWithPermission => {
+  if (isOpenCodeConfigWithPermission(config)) return config;
+  if (isOpenCodeConfig(config)) return { ...config, permission: config.permission ?? {} };
+  return { $schema: "https://opencode.ai/config.json", permission: {} };
+}
 
 export const AutoUpdatePermissionPlugin: Plugin = async ({ project, client, $, directory, worktree }) => {
   return {
@@ -56,16 +69,16 @@ export const AutoUpdatePermissionPlugin: Plugin = async ({ project, client, $, d
         const openCodeJsonPath = directory + "/opencode.json";
         const openCodeJson = await readFile(openCodeJsonPath, "utf-8");
         const openCodeConfig = JSON.parse(openCodeJson);
-        if (!isOpenCodeConfig(openCodeConfig)) return;
-
-        const result = updateConfigObject(openCodeConfig, foundPermissionAskedEvent.properties.permission, foundPermissionAskedEvent.properties.always);
+        const configWithPermission = getConfigWithPermission(openCodeConfig);
+        
+        const result = updateConfigObject(configWithPermission, foundPermissionAskedEvent.properties.permission, foundPermissionAskedEvent.properties.always);
         await writeFile(openCodeJsonPath, JSON.stringify(result, null, 2), "utf-8");
       }
     },
   }
 }
 
-const updateConfigObject = (config: OpenCodeConfig, permissionName: string, newAllowedCommands: string[]): OpenCodeConfig => {
+const updateConfigObject = (config: OpenCodeConfigWithPermission, permissionName: string, newAllowedCommands: string[]): OpenCodeConfigWithPermission => {
   // edit は許可しない
   if (permissionName === "edit") return config;
 
@@ -75,14 +88,14 @@ const updateConfigObject = (config: OpenCodeConfig, permissionName: string, newA
   return config;
 }
 
-const getTargetPermissionOrFallback = (config: OpenCodeConfig, permissionName: string): OpenCodeConfig["permission"][string] | undefined => {
+const getTargetPermissionOrFallback = (config: OpenCodeConfigWithPermission, permissionName: string): OpenCodeConfigWithPermission["permission"][string] | undefined => {
   if (permissionName in config.permission) return config.permission[permissionName];
 }
 
 const buildTargetPermission = (
-  existingPermission: OpenCodeConfig["permission"][string] | undefined,
+  existingPermission: OpenCodeConfigWithPermission["permission"][string] | undefined,
   newAllowedCommands: string[]
-): OpenCodeConfig["permission"][string] | Record<string, "allow"> => {
+): OpenCodeConfigWithPermission["permission"][string] | Record<string, "allow"> => {
   // 全て許可の場合 allow を直接記述
   if (newAllowedCommands.length === 1 && newAllowedCommands[0] === "*") return "allow";
 
