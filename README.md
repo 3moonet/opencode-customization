@@ -10,3 +10,7 @@ OpenCode AI用のカスタムプラグイン集です。
 
 - `~/.config/opencode` に必要なパッケージをinstall
 - 使いたい plugin などをディレクトリごとコピー
+
+### auto-update-permission
+
+- `~/.config/git/ignore`に`**/opencode.json`を記載
