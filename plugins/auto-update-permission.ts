@@ -99,7 +99,7 @@ const buildTargetPermission = (
   // 全て許可の場合 allow を直接記述
   if (newAllowedCommands.length === 1 && newAllowedCommands[0] === "*") return "allow";
 
-  if (existingPermission === undefined || typeof existingPermission !== "string") {
+  if (existingPermission === undefined || typeof existingPermission === "string") {
     return Object.fromEntries(newAllowedCommands.map(command => [command, "allow"]));
   }
 
